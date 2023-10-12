@@ -1,0 +1,44 @@
+select 
+       l.doc_no as INVOICE,vl.doc_no as Purch_Invoice,l.REF3 as PO, tk.parent_doc_no as Sales_Order,so.parent_doc_no as Quote, t.uline,tl.suline,isnull(e.NAME,(select name from custvend where acctno=h.acctno)) as CUSTOMERS, isnull(e.CITY,(select CITY from custvend where acctno=h.acctno)) as CITY,
+	   coalesce(e.STATE,(select state from custvend where acctno=h.acctno)) as STATE,isnull(k.COUNTRY,(select country from custvend where acctno=h.acctno)) as COUNTRY,(select rtrim(f_name) +', '+rtrim(L_NAME) from userlist where ccode = h.sman1_code ) as SMAN,
+          h.shipped_date as SHIPDATE,h.doc_type,
+		  so.DOC_DATE as SO_Date,vl.ADDED_DTE as PI_Date,
+          l.PARTNUMBER, 
+          l.DESCRIPTN as PART_DESCRIPTION,l.unitp as UnitPrice, 
+       l.qship as Quantity,
+       l.qship*l.unitp as Invoice_Subtotal,
+          h.SUB_TAX_AMT/uline as Tax,
+          h.DISC_AMT/uline as Discount,
+        
+		  (h.c_MISC1_AMT+ h.c_misc2_amt+h.c_misc3_amt+ h.c_misc4_amt+ h.c_misc5_amt+ h.c_misc6_amt)/uline as Misc_charges,
+		  (l.qship*l.unitp)+(h.SUB_TAX_AMT/uline)+(h.DISC_AMT/uline)+((h.c_MISC1_AMT+ h.c_misc2_amt+h.c_misc3_amt+ h.c_misc4_amt+ h.c_misc5_amt+ h.c_misc6_amt)/uline) as REVENUE,((so.doc_total)/suline) as SO_revenue,
+          vl.DOC_TOTAL/vuline as Purchase_amount,
+          l.QTY_UM as UM,
+          l.QTY_CONVERT,
+          h.CUST_REF3 as Type,
+       h.CUST_REF4 as OP_REQ,
+       l.cost as Net_Cost,
+          s.SUBTOTAL as Material_unit_cost,
+          s.misc1_amt as Vendor_Freight_cost,
+          s.MISC2_AMT as Vendor_Packaging_cost,
+          s.MISC3_AMT as Vendor_rounding_adj_cost,
+          s.MISC4_AMT as Vendor_expedite_fee_cost,
+          s.MISC5_AMT as Vendor_credit_card_fee,
+          s.MISC6_AMT as Vendor_Other_Misc,
+          s.UNITP1 as Pckg_Cut_pvc,
+          s.UNITP2 as AOG,
+          s.UNITP3 as ZERO,
+          s.COST_CAP as OSS,
+	   (l.cost*l.QSHIP*l.qty_convert) + coalesce((l.cost1),0)+ coalesce((l.cost2),0)+coalesce((l.cost3),0) as Total_COST
+	    
+	    
+
+from inv_hdr h join inv_line l on h.doc_no = l.doc_no left join tkt_hdr tk on tk.doc_no=h.parent_doc_no left join so_hdr so on so.doc_no=tk.parent_doc_no 
+left join (select l.doc_no,count(*) as uline from INV_LINE l join inv_hdr h on l.DOC_NO=h.doc_no and l.NO_CHARGE='N' group by l.DOC_NO) t on t.DOC_NO=l.DOC_NO
+left join (select sl.doc_no,count(*) as suline from so_line sl group by sl.doc_no) tl on tl.DOC_NO=so.DOC_NO
+left join E_VIEW_BILLTO e on h.ACCTNO=E.ACCTNO  and (h.BILLTO=E.BILLTO) left join SHIPTO k on (k.ACCTNO=e.ACCTNO and k.SHIP_TYPE='B' and k.SHIP_NO=e.BILLTO) left join STOCKWH s on l.LOGNO=s.LOGNO
+left join VINV_LINE vl on l.REF3=vl.ref3 and l.logno=vl.logno 
+left join (select vl.doc_no,count(*) as vuline from VINV_LINE vl join VINV_HDR v on vl.DOC_NO=v.doc_no group by vl.DOC_NO) u on u.DOC_NO=vl.DOC_NO 
+left join VINV_HDR v on v.doc_no=vl.doc_no 
+where l.no_charge='N'
+order by h.doc_no desc, uline
